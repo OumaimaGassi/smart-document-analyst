@@ -39,23 +39,43 @@
 \lhead{UIR -- S8 Integrated Project}
 \rfoot{Page \thepage}
 
-\title{
-    \vspace{-1cm}
-    \textbf{Smart Document Analyst}\\[0.3cm]
-    \large A Multi-Agent AI System for Document Classification,\\
-    Extraction, Summarization, and Report Generation\\[0.5cm]
-    \normalsize S8 Integrated Project -- Building Multi-Agent AI Systems\\
-    AI \& Big Data Program -- UIR 2025--2026
-}
-\author{
-    Benmouma Salma \and Gassi Oumaima\\[0.3cm]
-    \small Supervised by Prof.\ Hakim Hafidi
-}
-\date{April 2026}
-
 \begin{document}
-\maketitle
-\thispagestyle{empty}
+
+% ============ Custom Title Page ============
+\begin{titlepage}
+\centering
+
+\includegraphics[width=4cm]{uir_logo.png}\\[1cm]
+
+{\large \textbf{Université Internationale de Rabat}}\\[0.2cm]
+{\normalsize AI \& Big Data Program --- S8 Integrated Project}\\[0.2cm]
+{\normalsize Academic Year 2025--2026}\\[1.5cm]
+
+\rule{\textwidth}{0.5pt}\\[0.5cm]
+{\Huge \textbf{Smart Document Analyst}}\\[0.4cm]
+{\Large A Multi-Agent AI System for Document\\Classification, Extraction, Summarization,\\and Report Generation}\\[0.5cm]
+\rule{\textwidth}{0.5pt}\\[2cm]
+
+\begin{minipage}{0.45\textwidth}
+\begin{flushleft}
+\textbf{Realized by:}\\[0.3cm]
+Benmouma Salma\\
+Gassi Oumaima
+\end{flushleft}
+\end{minipage}
+\hfill
+\begin{minipage}{0.45\textwidth}
+\begin{flushright}
+\textbf{Supervised by:}\\[0.3cm]
+Prof.\ Hakim Hafidi
+\end{flushright}
+\end{minipage}
+
+\vfill
+{\large April 2026}
+
+\end{titlepage}
+
 
 \begin{abstract}
 This report presents the design, implementation, and evaluation of a multi-agent AI system for automated document analysis. The system employs three specialist agents orchestrated by CrewAI to classify documents using a CNN deep learning model, extract and summarize text content, and generate structured analysis reports. A fine-tuned ResNet-18 model trained on the RVL-CDIP dataset achieves 85.62\% test accuracy across 8 document classes. The system includes a human-in-the-loop checkpoint, comprehensive error handling, and JSON-based action logging. This report details the architectural decisions, model training, agent design, and evaluation results.
