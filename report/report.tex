@@ -1,0 +1,432 @@
+\documentclass[12pt,a4paper]{article}
+\usepackage[utf8]{inputenc}
+\usepackage[T1]{fontenc}
+\usepackage[english]{babel}
+\usepackage{geometry}
+\geometry{margin=2.5cm}
+\usepackage{graphicx}
+\usepackage{booktabs}
+\usepackage{hyperref}
+\usepackage{listings}
+\usepackage{xcolor}
+\usepackage{amsmath}
+\usepackage{float}
+\usepackage{enumitem}
+\usepackage{fancyhdr}
+\usepackage{titlesec}
+
+\definecolor{codeblue}{RGB}{0,102,204}
+\definecolor{codegray}{RGB}{128,128,128}
+\definecolor{codegreen}{RGB}{0,128,0}
+\definecolor{backcolour}{RGB}{245,245,245}
+
+\lstdefinestyle{mystyle}{
+    backgroundcolor=\color{backcolour},
+    commentstyle=\color{codegreen},
+    keywordstyle=\color{codeblue},
+    numberstyle=\tiny\color{codegray},
+    basicstyle=\ttfamily\small,
+    breaklines=true,
+    frame=single,
+    numbers=left,
+    numbersep=5pt,
+}
+\lstset{style=mystyle}
+
+\pagestyle{fancy}
+\fancyhf{}
+\rhead{Smart Document Analyst}
+\lhead{UIR -- S8 Integrated Project}
+\rfoot{Page \thepage}
+
+\title{
+    \vspace{-1cm}
+    \textbf{Smart Document Analyst}\\[0.3cm]
+    \large A Multi-Agent AI System for Document Classification,\\
+    Extraction, Summarization, and Report Generation\\[0.5cm]
+    \normalsize S8 Integrated Project -- Building Multi-Agent AI Systems\\
+    AI \& Big Data Program -- UIR 2025--2026
+}
+\author{
+    Benmouma Salma \and Gassi Oumaima\\[0.3cm]
+    \small Supervised by Prof.\ Hakim Hafidi
+}
+\date{April 2026}
+
+\begin{document}
+\maketitle
+\thispagestyle{empty}
+
+\begin{abstract}
+This report presents the design, implementation, and evaluation of a multi-agent AI system for automated document analysis. The system employs three specialist agents orchestrated by CrewAI to classify documents using a CNN deep learning model, extract and summarize text content, and generate structured analysis reports. A fine-tuned ResNet-18 model trained on the RVL-CDIP dataset achieves 85.62\% test accuracy across 8 document classes. The system includes a human-in-the-loop checkpoint, comprehensive error handling, and JSON-based action logging. This report details the architectural decisions, model training, agent design, and evaluation results.
+\end{abstract}
+
+\tableofcontents
+\newpage
+
+% ============================================================
+\section{Introduction}
+% ============================================================
+
+\subsection{Context and Motivation}
+In modern organizations, the volume of documents---invoices, letters, reports, forms---continues to grow rapidly. Manually classifying, reading, and summarizing these documents is time-consuming and error-prone. An intelligent system capable of automating this pipeline would significantly improve productivity and accuracy.
+
+\subsection{Project Objectives}
+The objective of this project is to design and build a \textbf{multi-agent AI system} where specialized agents collaborate to:
+\begin{enumerate}
+    \item \textbf{Classify} documents into predefined categories using a CNN deep learning model.
+    \item \textbf{Extract} text from documents (native PDF or OCR for scanned documents).
+    \item \textbf{Summarize} the extracted content using a large language model (Gemini API).
+    \item \textbf{Generate} a structured professional report combining all analysis results.
+\end{enumerate}
+
+\subsection{Technical Constraints}
+As specified in the project brief, the system must satisfy the following requirements:
+\begin{itemize}
+    \item At least 2 specialist agents + 1 orchestrator
+    \item A PyTorch deep learning model trained by the team, integrated as a functional tool
+    \item At least 2 tools with clear input/output schemas
+    \item A human-in-the-loop checkpoint requiring human approval
+    \item Error handling for tool failures, invalid inputs, and unexpected outputs
+    \item JSON logging with timestamps for every agent action
+\end{itemize}
+
+% ============================================================
+\section{System Architecture}
+% ============================================================
+
+\subsection{High-Level Overview}
+The system follows a \textbf{sequential pipeline} architecture where documents flow through four stages: classification, human approval, extraction \& summarization, and report generation. Each stage is handled by a specialist agent equipped with dedicated tools.
+
+\begin{figure}[H]
+\centering
+\begin{verbatim}
+    User Input (PDF/Image)
+         |
+    [Orchestrator Agent] --- Manages workflow
+         |
+    [Classifier Agent] --- CNN Model Tool (PyTorch)
+         |
+    [HITL Checkpoint] --- Human approves/corrects classification
+         |
+    [Extractor & Summarizer Agent] --- OCR + LLM Tools
+         |
+    [Report Generator Agent] --- Report Builder Tool
+         |
+    Final Analysis Report (Markdown/PDF)
+\end{verbatim}
+\caption{System pipeline architecture}
+\end{figure}
+
+\subsection{Agent Roles and Responsibilities}
+
+\begin{table}[H]
+\centering
+\caption{Agent definitions and their tools}
+\begin{tabular}{@{}llp{5.5cm}@{}}
+\toprule
+\textbf{Agent} & \textbf{Tools} & \textbf{Responsibility} \\
+\midrule
+Classifier & \texttt{cnn\_classify\_tool} & Classify document type using the trained CNN model \\
+Extractor \& Summarizer & \texttt{ocr\_extract\_tool}, \texttt{llm\_summarize\_tool} & Extract text via OCR and generate a type-aware summary \\
+Report Generator & \texttt{report\_builder\_tool} & Produce a structured Markdown/PDF report \\
+\bottomrule
+\end{tabular}
+\end{table}
+
+\subsection{Orchestration with CrewAI}
+The agents are orchestrated using \textbf{CrewAI} with a sequential process. The orchestrator:
+\begin{itemize}
+    \item Routes tasks to agents in the correct order
+    \item Passes context (classification results) between agents
+    \item Enforces the HITL checkpoint between classification and extraction
+    \item Aggregates the final output
+\end{itemize}
+
+The system supports two execution modes:
+\begin{itemize}
+    \item \textbf{Standard mode}: Fully automated sequential pipeline via \texttt{crew.run()}
+    \item \textbf{HITL mode}: Manual orchestration with an interactive classification approval checkpoint via \texttt{crew.run\_with\_hitl()}
+\end{itemize}
+
+\subsection{Project Structure}
+\begin{lstlisting}[language=bash, caption=Repository structure]
+smart-document-analyst/
+├── config/
+│   ├── agents.yaml          # Agent role definitions
+│   └── tasks.yaml           # Task pipeline definitions
+├── src/
+│   ├── main.py              # CLI entry point
+│   ├── crew.py              # CrewAI crew orchestration
+│   ├── agents/              # Agent definitions
+│   ├── tools/               # Tool implementations
+│   ├── models/              # PyTorch model definition
+│   └── utils/               # Logger, HITL, preprocessing
+├── model/
+│   └── document_classifier.pt  # Trained model weights
+├── notebooks/
+│   └── train_on_colab.ipynb    # Training notebook
+└── tests/                      # Unit tests
+\end{lstlisting}
+
+% ============================================================
+\section{Deep Learning Model}
+% ============================================================
+
+\subsection{Dataset: RVL-CDIP}
+We use the \textbf{RVL-CDIP} (Ryerson Vision Lab -- Complex Document Information Processing) dataset, a widely-used benchmark for document image classification. From the full 16-class dataset, we selected a \textbf{subset of 8 classes} to maintain feasibility on Google Colab's free tier:
+
+\begin{table}[H]
+\centering
+\caption{Selected document classes (2,000 images per class)}
+\begin{tabular}{@{}ll@{}}
+\toprule
+\textbf{Class} & \textbf{Description} \\
+\midrule
+letter & Formal correspondence \\
+form & Structured forms with fields \\
+invoice & Financial billing documents \\
+resume & Curriculum vitae / CVs \\
+scientific\_publication & Academic papers \\
+email & Electronic mail printouts \\
+memo & Internal memoranda \\
+advertisement & Marketing materials \\
+\bottomrule
+\end{tabular}
+\end{table}
+
+Total dataset size: \textbf{16,000 images}, split as follows:
+\begin{itemize}
+    \item Training: 12,800 images (80\%)
+    \item Validation: 1,600 images (10\%)
+    \item Test: 1,600 images (10\%)
+\end{itemize}
+
+\subsection{Model Architecture}
+We use a \textbf{fine-tuned ResNet-18} pretrained on ImageNet. The architecture choices are:
+
+\begin{itemize}
+    \item \textbf{Backbone}: ResNet-18 with ImageNet pretrained weights
+    \item \textbf{Frozen layers}: \texttt{conv1}, \texttt{bn1}, \texttt{layer1}, \texttt{layer2} (early feature extraction layers)
+    \item \textbf{Trainable layers}: \texttt{layer3}, \texttt{layer4}, and the custom classification head
+    \item \textbf{Classification head}: Dropout(0.3) $\rightarrow$ Linear(512, 256) $\rightarrow$ ReLU $\rightarrow$ BatchNorm $\rightarrow$ Dropout(0.15) $\rightarrow$ Linear(256, 8)
+\end{itemize}
+
+\textbf{Rationale}: Fine-tuning a pretrained model leverages learned visual features while adapting to document-specific patterns. Freezing early layers reduces training time and prevents overfitting on our relatively small dataset.
+
+\textbf{Parameters}: 11,310,408 total; trainable parameters focus on the deeper layers and classification head.
+
+\subsection{Training Configuration}
+
+\begin{table}[H]
+\centering
+\caption{Training hyperparameters}
+\begin{tabular}{@{}ll@{}}
+\toprule
+\textbf{Parameter} & \textbf{Value} \\
+\midrule
+Input size & 224 $\times$ 224 (grayscale $\rightarrow$ 3-channel) \\
+Batch size & 32 \\
+Optimizer & AdamW (lr=$10^{-4}$, weight\_decay=$10^{-4}$) \\
+Scheduler & CosineAnnealingLR ($T_{max}=20$, $\eta_{min}=10^{-6}$) \\
+Loss function & CrossEntropyLoss \\
+Epochs & 20 (early stopping, patience=5) \\
+Device & NVIDIA T4 GPU (Google Colab) \\
+\bottomrule
+\end{tabular}
+\end{table}
+
+\textbf{Data augmentation} (training only): RandomCrop(224), RandomRotation(5\textdegree), RandomAffine (translate=5\%, scale=95--105\%), ColorJitter (brightness=0.2, contrast=0.2).
+
+\subsection{Training Results}
+Training converged in \textbf{18 epochs} before early stopping was triggered. The best validation accuracy was achieved at epoch 13.
+
+\begin{table}[H]
+\centering
+\caption{Training progression (selected epochs)}
+\begin{tabular}{@{}ccccc@{}}
+\toprule
+\textbf{Epoch} & \textbf{Train Loss} & \textbf{Train Acc} & \textbf{Val Loss} & \textbf{Val Acc} \\
+\midrule
+1  & 0.9478 & 67.51\% & 0.7341 & 74.62\% \\
+5  & 0.3796 & 87.30\% & 0.5043 & 83.81\% \\
+10 & 0.1881 & 93.80\% & 0.5024 & 86.19\% \\
+13 & 0.1231 & 95.78\% & 0.5075 & \textbf{87.62\%} \\
+18 & 0.0693 & 98.02\% & 0.5397 & 87.62\% \\
+\bottomrule
+\end{tabular}
+\end{table}
+
+\subsection{Test Set Evaluation}
+
+\begin{table}[H]
+\centering
+\caption{Per-class classification results on the test set}
+\begin{tabular}{@{}lcccc@{}}
+\toprule
+\textbf{Class} & \textbf{Precision} & \textbf{Recall} & \textbf{F1-Score} & \textbf{Support} \\
+\midrule
+letter & 0.88 & 0.95 & 0.92 & 200 \\
+form & 0.91 & 0.95 & 0.93 & 191 \\
+invoice & 0.78 & 0.72 & 0.75 & 207 \\
+resume & 0.82 & 0.83 & 0.83 & 204 \\
+scientific\_publication & 0.83 & 0.71 & 0.76 & 201 \\
+email & 0.81 & 0.84 & 0.82 & 206 \\
+memo & 0.89 & 0.90 & 0.90 & 196 \\
+advertisement & 0.92 & 0.94 & 0.93 & 195 \\
+\midrule
+\textbf{Overall Accuracy} & \multicolumn{4}{c}{\textbf{85.62\%}} \\
+\textbf{Macro Avg} & 0.86 & 0.86 & 0.86 & 1600 \\
+\bottomrule
+\end{tabular}
+\end{table}
+
+\textbf{Analysis}: The model performs best on advertisement (F1=0.93) and form (F1=0.93), and weakest on invoice (F1=0.75) and scientific\_publication (F1=0.76). The confusion between invoice and form is expected given their visual similarity (both contain structured fields and tables).
+
+% ============================================================
+\section{Tools Implementation}
+% ============================================================
+
+Each tool is implemented as a CrewAI \texttt{BaseTool} subclass with a Pydantic input schema.
+
+\subsection{Tool 1: CNN Classification Tool}
+\begin{itemize}
+    \item \textbf{Input}: File path to a document (PDF, PNG, JPG)
+    \item \textbf{Output}: JSON with predicted class, confidence score, and top-3 predictions
+    \item \textbf{Process}: Loads the trained PyTorch model, preprocesses the document image (PDF pages are rendered via PyMuPDF), runs inference with \texttt{torch.no\_grad()}, and applies softmax for probabilities
+\end{itemize}
+
+\subsection{Tool 2: OCR Extraction Tool}
+\begin{itemize}
+    \item \textbf{Input}: File path to a document
+    \item \textbf{Output}: JSON with extracted text, page count, and extraction method
+    \item \textbf{Strategy}: Tries PyMuPDF native text extraction first; if the result is too short ($<$50 characters, indicating a scanned document), falls back to Tesseract OCR
+\end{itemize}
+
+\subsection{Tool 3: LLM Summarization Tool}
+\begin{itemize}
+    \item \textbf{Input}: Extracted text, document type, maximum summary length
+    \item \textbf{Output}: JSON with summary, key points, and word count
+    \item \textbf{Features}: Adapts the prompt based on document type (e.g., invoices focus on amounts; resumes focus on skills). Includes retry logic with exponential backoff and an extractive fallback when the API is unavailable
+\end{itemize}
+
+\subsection{Tool 4: Report Builder Tool}
+\begin{itemize}
+    \item \textbf{Input}: Classification, extraction, and summary results as JSON
+    \item \textbf{Output}: JSON with the path to the generated report file
+    \item \textbf{Format}: Generates a professional Markdown report with optional PDF conversion via \texttt{fpdf2}
+\end{itemize}
+
+% ============================================================
+\section{Human-in-the-Loop}
+% ============================================================
+
+The HITL checkpoint is triggered after classification and before downstream processing. It presents the CNN's prediction to the user and offers three options:
+
+\begin{enumerate}
+    \item \textbf{Approve}: Accept the classification and proceed
+    \item \textbf{Override}: Correct the class label (the corrected label propagates to the summarizer and report)
+    \item \textbf{Reject}: Stop the pipeline entirely for this document
+\end{enumerate}
+
+This is not decorative---the user's decision has genuine functional impact on the system's behavior. If the user overrides the class, the Extractor Agent adapts its summarization style to the corrected document type, producing a more relevant summary.
+
+% ============================================================
+\section{Error Handling and Logging}
+% ============================================================
+
+\subsection{Error Handling}
+Every tool implements defensive error handling:
+
+\begin{table}[H]
+\centering
+\caption{Error handling scenarios}
+\begin{tabular}{@{}lp{7cm}@{}}
+\toprule
+\textbf{Scenario} & \textbf{Handling} \\
+\midrule
+File not found & Returns descriptive error JSON, no crash \\
+Unsupported format & Validates extension, returns supported formats list \\
+CNN model missing & Graceful error with download instructions \\
+OCR returns empty & Falls back to Tesseract; if still empty, warns user \\
+Gemini API failure & 3 retries with exponential backoff, then extractive fallback \\
+Invalid LLM output & Parse validation and re-prompting \\
+\bottomrule
+\end{tabular}
+\end{table}
+
+\subsection{Logging}
+All agent actions are logged to \texttt{logs/agent\_actions.jsonl} in structured JSON format:
+
+\begin{lstlisting}[language=Python, caption=Example log entry]
+{
+  "timestamp": "2026-04-26T14:23:01Z",
+  "agent": "ClassifierAgent",
+  "action": "cnn_classify_tool",
+  "input": {"file_path": "data/sample_docs/invoice.pdf"},
+  "output": {"class": "invoice", "confidence": 0.943},
+  "status": "success",
+  "duration_ms": 1230
+}
+\end{lstlisting}
+
+% ============================================================
+\section{Evaluation and Robustness}
+% ============================================================
+
+\subsection{CNN Model Evaluation}
+The CNN model was rigorously evaluated with:
+\begin{itemize}
+    \item \textbf{Accuracy}: 85.62\% on a held-out test set of 1,600 images
+    \item \textbf{Confusion matrix}: Analyzed to identify class-pair confusions
+    \item \textbf{Per-class metrics}: Precision, recall, and F1-score for all 8 classes
+    \item \textbf{Training curves}: Monitored for overfitting (early stopping triggered at epoch 18)
+\end{itemize}
+
+\subsection{Honest Failure Analysis}
+\begin{itemize}
+    \item \textbf{Invoice vs.\ Form confusion}: Both document types share visual features (tables, structured fields), leading to the lowest F1 scores
+    \item \textbf{Scientific publication recall}: At 71\%, some academic papers are misclassified as letters or memos, likely due to text-heavy layouts that resemble correspondence
+    \item \textbf{Overfitting gap}: Training accuracy (98\%) vs.\ test accuracy (85.6\%) indicates some overfitting despite data augmentation and dropout. More training data or stronger regularization could help
+\end{itemize}
+
+% ============================================================
+\section{Challenges and Lessons Learned}
+% ============================================================
+
+\begin{enumerate}
+    \item \textbf{Dependency conflicts on Colab}: NumPy 2.0 broke compatibility with scikit-learn and scipy. Solution: pinning \texttt{numpy<2.0.0} and restarting the runtime.
+    \item \textbf{HuggingFace dataset loading}: The \texttt{rvl\_cdip} shorthand was deprecated. Solution: using the full path \texttt{aharley/rvl\_cdip}.
+    \item \textbf{GitHub notebook rendering}: Jupyter widget metadata from tqdm caused ``Invalid Notebook'' errors. Solution: stripping \texttt{metadata.widgets} before committing.
+    \item \textbf{Agent design}: The key insight is that each agent must have a \textit{distinct, justified role}. Merging tools into fewer agents would reduce the system's modularity and make it harder to debug.
+\end{enumerate}
+
+% ============================================================
+\section{Conclusion}
+% ============================================================
+
+We have designed, built, and evaluated a multi-agent AI system for document analysis that satisfies all project requirements. The system demonstrates genuine collaboration between specialized agents, each with a distinct role and dedicated tools. The CNN deep learning model, trained on real document data, serves as a functional tool---not decoration---within the agent pipeline.
+
+The system achieves 85.62\% classification accuracy, includes a meaningful human-in-the-loop checkpoint, and handles errors gracefully without crashing. Every agent action is logged with timestamps in structured JSON format.
+
+\textbf{Future work} could include:
+\begin{itemize}
+    \item Training on the full 16-class RVL-CDIP dataset for broader coverage
+    \item Adding a Streamlit/Gradio web interface for non-technical users
+    \item Migrating to LangGraph for more complex agent communication patterns
+    \item Fine-tuning a smaller language model locally to remove API dependency
+\end{itemize}
+
+% ============================================================
+\section*{References}
+% ============================================================
+\begin{enumerate}
+    \item Harley, A.W., Ufkes, A., Derpanis, K.G. (2015). \textit{Evaluation of Deep Convolutional Nets for Document Image Classification and Retrieval}. ICDAR.
+    \item He, K. et al.\ (2016). \textit{Deep Residual Learning for Image Recognition}. CVPR.
+    \item CrewAI Documentation. \url{https://docs.crewai.com/}
+    \item PyTorch Documentation. \url{https://pytorch.org/docs/}
+    \item Google Gemini API. \url{https://ai.google.dev/}
+    \item RVL-CDIP Dataset. \url{https://huggingface.co/datasets/aharley/rvl_cdip}
+\end{enumerate}
+
+\end{document}
