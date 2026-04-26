@@ -1,0 +1,12 @@
+{
+  "timestamp": "2026-04-26T19:07:00",
+  "team": "Benmouma Salma, Gassi Oumaima",
+  "accuracy": 0.8562,
+  "best_val_acc": 0.8762,
+  "num_classes": 8,
+  "classes": ["letter", "form", "invoice", "resume", "scientific_publication", "email", "memo", "advertisement"],
+  "epochs_trained": 18,
+  "early_stopped": true,
+  "device": "cuda (T4 GPU on Colab)",
+  "pytorch_version": "2.6.0"
+}
