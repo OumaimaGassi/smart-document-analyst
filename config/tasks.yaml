@@ -1,0 +1,42 @@
+# ============================================
+# Task Configuration — Smart Document Analyst
+# Team: Benmouma Salma, Gassi Oumaima
+# ============================================
+
+classify_document:
+  description: >
+    Classify the document at '{file_path}' using the CNN classification tool.
+    Call the cnn_classify_tool with the file path and return the full
+    classification result including the predicted class, confidence score,
+    and top 3 predictions.
+  expected_output: >
+    A JSON object containing: 'class' (predicted document type),
+    'confidence' (float between 0 and 1), 'top_3' (list of top 3 predictions),
+    and 'file_path'.
+  agent: classifier
+
+extract_and_summarize:
+  description: >
+    Extract all text from the document at '{file_path}' using the OCR
+    extraction tool. Then summarize the extracted text using the LLM
+    summarization tool. Use the document type from the previous classification
+    to adapt the summarization style.
+  expected_output: >
+    Two JSON results: (1) extraction result with 'text', 'num_pages', 'method';
+    (2) summary result with 'summary', 'key_points', 'word_count'.
+  agent: extractor
+  context:
+    - classify_document
+
+generate_report:
+  description: >
+    Generate a professional analysis report for the document at '{file_path}'.
+    Combine the classification results, extracted text, and summary into a
+    well-structured Markdown/PDF report.
+  expected_output: >
+    A JSON object with 'report_path' (path to generated report),
+    'format' (markdown/pdf), and 'report_length'.
+  agent: reporter
+  context:
+    - classify_document
+    - extract_and_summarize

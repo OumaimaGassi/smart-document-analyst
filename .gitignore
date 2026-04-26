@@ -1,0 +1,30 @@
+# Environment
+.env
+__pycache__/
+*.pyc
+*.pyo
+
+# Model weights (too large for git)
+model/*.pt
+model/*.pth
+
+# Data
+data/dataset/
+
+# IDE
+.vscode/
+.idea/
+
+# OS
+.DS_Store
+Thumbs.db
+
+# Logs
+logs/*.jsonl
+
+# Outputs
+outputs/reports/*.pdf
+outputs/reports/*.md
+
+# Jupyter
+.ipynb_checkpoints/
