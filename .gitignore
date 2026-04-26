@@ -4,9 +4,10 @@ __pycache__/
 *.pyc
 *.pyo
 
-# Model weights (too large for git)
-model/*.pt
-model/*.pth
+# Model weights — tracked so the repo is self-contained
+# (ResNet-18 is ~45MB, within GitHub's 100MB limit)
+# model/*.pt
+# model/*.pth
 
 # Data
 data/dataset/
